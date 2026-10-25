@@ -7,27 +7,29 @@
 
 ---
 
-## 1. Visão Geral da Arquitetura Colaborativa
-A arquitetura do sistema Rota Sul é estruturada para integrar 4 subsistemas centrais que colaboram na cadeia logística:
-- **Subsistema de Pedidos (Lojista):** Captação e registro de pedidos dos clientes.
-- **Subsistema de Armazém e Expedição:** Agrupamento de itens em remessas e volumes.
-- **Subsistema de Transporte Principal:** Gestão do transporte de longa distância com frota própria.
-- **Subsistema de Última Milha:** Repasse e acompanhamento das entregas com parceiros locais.
+## 1. Modelo de Comunicação e Concorrência
+
+### Síncrono vs. Assíncrono
+- **Síncrono:** Validação de saldo/limite de crédito do lojista e consulta de estoque do armazém (o cliente aguarda a confirmação imediata).
+- **Assíncrono:** Atualização de rastreamento de entregas pela frota/parceiro e envio de notificações de status (o processamento ocorre sem bloquear a origem).
+
+### Controle de Concorrência no Case Rota Sul
+- **Pessimista:** Aplicado na alocação de itens em uma `Remessa` no armazém. O item fica bloqueado enquanto o expedidor finaliza o volume para evitar que dois expedidores aloquem o mesmo produto em remessas diferentes.
+- **Otimista:** Aplicado na atualização do status da entrega pelo motorista. O sistema verifica a versão do registro antes de salvar a ocorrência.
 
 ---
 
-## 2. Estilo Arquitetural e Topologia
-- **Estilo:** Cliente-Servidor centralizado na nuvem com integração orientada a serviços (SOA/REST).
-- **Modo de Interação:** Híbrido (Assíncrono para eventos de rastreamento e Síncrono para validação de pedidos/estoque).
-- **Topologia de Rede:** Nós distribuídos que comunicam status do pedido centralizado em um banco de dados comum.
+## 2. Modelo de Arquitetura Adotado
+- **Modelo:** **Híbrida (Centralizada + Distribuída)**
+- **Justificativa:** A base de dados principal (`Pedido`, `Cliente`, `Faturamento`) opera de forma **centralizada** para garantir consistência e controle financeiro. A coleta de dados de campo (aplicativo do motorista e integração das transportadoras parceiras) opera de forma **descentralizada/distribuída**, sincronizando via mensagens e APIs REST.
 
 ---
 
-## 3. Matriz de Colaboração entre Atores e Componentes
+## 3. Avaliação de Características do Sistema Distribuído
 
-| Ator | Componente Acessado | Dados Compartilhados | Protocolo de Comunicação |
-|---|---|---|---|
-| **Lojista** | Web / Portal de Pedidos | `Pedido`, `Cliente` | HTTPS / REST |
-| **Expedidor** | Módulo de Armazém | `Remessa`, `Volume` | HTTPS / Web |
-| **Motorista** | App Rota Principal | `Rota`, `Ocorrencia` | REST / Mobile |
-| **Parceiro** | API de Integração | `StatusEntrega`, `Parceiro` | REST / JSON |
+| Característica | Aplicação Prática na Rota Sul |
+|---|---|
+| **Transparência da Distribuição** | Para o lojista, o sistema parece único, embora integre 4 subsistemas distintos. |
+| **Escalabilidade** | A API de rastreamento aceita o aumento de requisições de clientes sem degradar o painel do expedidor. |
+| **Tolerância a Falhas** | Se a API de uma parceira de última milha cair, as ocorrências ficam salvas em fila local e sincronizam ao reestabelecer. |
+| **Interoperabilidade** | Troca de dados entre sistemas heterogêneos utilizando metadados padronizados em JSON/REST. |
